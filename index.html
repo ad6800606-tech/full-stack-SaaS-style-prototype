@@ -7,21 +7,26 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              primary: '#2563eb',
-              secondary: '#7e22ce',
-              success: '#16a34a',
-              warning: '#ea580c',
-              danger: '#dc2626',
-              dark: '#1e293b',
-              light: '#f8fafc'
+      // Wait for Tailwind to load before configuring
+      document.addEventListener('DOMContentLoaded', function() {
+        if (window.tailwind && window.tailwind.config) {
+          tailwind.config = {
+            theme: {
+              extend: {
+                colors: {
+                  primary: '#2563eb',
+                  secondary: '#7e22ce',
+                  success: '#16a34a',
+                  warning: '#ea580c',
+                  danger: '#dc2626',
+                  dark: '#1e293b',
+                  light: '#f8fafc'
+                }
+              }
             }
           }
         }
-      }
+      });
     </script>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -36,7 +41,7 @@
       }
       
       .card:hover {
-        transform: translateY(-5px);
+        transform: translateY(-2px);
         box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
       }
       
@@ -50,10 +55,45 @@
       
       .sidebar {
         background: linear-gradient(180deg, #1e293b, #0f172a);
+        transition: transform 0.3s ease;
+      }
+      
+      .sidebar-mobile {
+        transform: translateX(-100%);
+      }
+      
+      .sidebar-mobile.open {
+        transform: translateX(0);
       }
       
       .progress-bar {
         transition: width 1s ease-in-out;
+      }
+      
+      @media (max-width: 768px) {
+        .sidebar {
+          position: fixed;
+          z-index: 50;
+          width: 280px;
+        }
+      }
+      
+      .mobile-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 40;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease;
+      }
+      
+      .mobile-overlay.show {
+        opacity: 1;
+        visibility: visible;
       }
     </style>
   </head>
@@ -185,6 +225,7 @@
         const [currentPage, setCurrentPage] = React.useState('login');
         const [uploadedFiles, setUploadedFiles] = React.useState([]);
         const [selectedContract, setSelectedContract] = React.useState(null);
+        const [sidebarOpen, setSidebarOpen] = React.useState(false);
         
         const handleLogin = (userData) => {
           setUser(userData);
@@ -194,11 +235,11 @@
         const handleLogout = () => {
           setUser(null);
           setCurrentPage('login');
+          setSidebarOpen(false);
         };
         
         const handleFileUpload = (files) => {
           setUploadedFiles(prev => [...prev, ...files]);
-          // Simulate processing time
           setTimeout(() => {
             setCurrentPage('dashboard');
           }, 1500);
@@ -207,20 +248,46 @@
         const handleViewContract = (contract) => {
           setSelectedContract(contract);
           setCurrentPage('insights');
+          setSidebarOpen(false);
+        };
+        
+        const toggleSidebar = () => {
+          setSidebarOpen(!sidebarOpen);
         };
         
         return (
           <div className="min-h-screen bg-gray-100">
             {user && (
-              <Navbar user={user} onLogout={handleLogout} setCurrentPage={setCurrentPage} />
+              <Navbar 
+                user={user} 
+                onLogout={handleLogout} 
+                setCurrentPage={setCurrentPage}
+                toggleSidebar={toggleSidebar}
+                sidebarOpen={sidebarOpen}
+              />
             )}
             
-            <div className="flex">
+            <div className="flex relative">
               {user && currentPage !== 'login' && (
-                <Sidebar currentPage={currentPage} setCurrentPage={setCurrentPage} />
+                <>
+                  <div 
+                    className={`mobile-overlay md:hidden ${sidebarOpen ? 'show' : ''}`}
+                    onClick={() => setSidebarOpen(false)}
+                  ></div>
+                  <Sidebar 
+                    currentPage={currentPage} 
+                    setCurrentPage={setCurrentPage}
+                    sidebarOpen={sidebarOpen}
+                    setSidebarOpen={setSidebarOpen}
+                  />
+                </>
               )}
               
-              <main className={`${user && currentPage !== 'login' ? 'ml-64 w-[calc(100%-16rem)]' : 'w-full'} transition-all duration-300`}>
+              <main className={`flex-1 transition-all duration-300 ${
+                user && currentPage !== 'login' 
+                  ? 'md:ml-64' 
+                  : 'w-full'
+              }`}>
                 {currentPage === 'login' && (
                   <LoginPage onLogin={handleLogin} />
                 )}
@@ -243,26 +310,40 @@
       };
       
       // Navbar Component
-      const Navbar = ({ user, onLogout, setCurrentPage }) => {
+      const Navbar = ({ user, onLogout, setCurrentPage, toggleSidebar, sidebarOpen }) => {
         return (
-          <nav className="bg-white shadow-md py-4 px-6 flex justify-between items-center">
+          <nav className="bg-white shadow-md py-3 px-4 sm:px-6 flex justify-between items-center relative z-30">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-primary">ContractInsight</h1>
-              <div className="ml-6 flex space-x-4">
-                <button onClick={() => setCurrentPage('dashboard')} className="text-gray-700 hover:text-primary font-medium">Dashboard</button>
-                <button onClick={() => setCurrentPage('upload')} className="text-gray-700 hover:text-primary font-medium">Upload</button>
+              <button
+                className="md:hidden mr-3 text-gray-600 hover:text-primary"
+                onClick={toggleSidebar}
+              >
+                <i className={`fas ${sidebarOpen ? 'fa-times' : 'fa-bars'} text-xl`}></i>
+              </button>
+              <h1 className="text-lg sm:text-xl font-bold text-primary">ContractInsight</h1>
+              <div className="ml-4 sm:ml-6 hidden sm:flex space-x-4">
+                <button onClick={() => setCurrentPage('dashboard')} className="text-gray-700 hover:text-primary font-medium">
+                  Dashboard
+                </button>
+                <button onClick={() => setCurrentPage('upload')} className="text-gray-700 hover:text-primary font-medium">
+                  Upload
+                </button>
               </div>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="flex items-center">
-                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-bold">
+                <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm">
                   {user.name.charAt(0)}
                 </div>
-                <span className="ml-2 text-gray-700">{user.name}</span>
+                <span className="ml-2 text-gray-700 text-sm sm:text-base hidden sm:inline">{user.name}</span>
               </div>
-              <button onClick={onLogout} className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium">
-                Logout
+              <button 
+                onClick={onLogout} 
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 sm:px-4 rounded-lg font-medium text-sm sm:text-base"
+              >
+                <span className="hidden sm:inline">Logout</span>
+                <i className="fas fa-sign-out-alt sm:hidden"></i>
               </button>
             </div>
           </nav>
@@ -270,22 +351,31 @@
       };
       
       // Sidebar Component
-      const Sidebar = ({ currentPage, setCurrentPage }) => {
+      const Sidebar = ({ currentPage, setCurrentPage, sidebarOpen, setSidebarOpen }) => {
         const menuItems = [
           { id: 'dashboard', label: 'Dashboard', icon: 'grid' },
           { id: 'upload', label: 'Upload Contracts', icon: 'upload' },
         ];
         
+        const handleMenuClick = (pageId) => {
+          setCurrentPage(pageId);
+          setSidebarOpen(false);
+        };
+        
         return (
-          <div className="sidebar w-64 h-screen fixed left-0 top-16 text-white p-4">
+          <div className={`sidebar w-64 h-screen fixed left-0 top-16 text-white p-4 z-50 md:z-auto ${
+            sidebarOpen ? '' : 'sidebar-mobile'
+          } md:transform-none`}>
             <div className="mt-6">
               <h2 className="text-lg font-semibold mb-4 text-gray-300">Main Menu</h2>
               <ul>
                 {menuItems.map(item => (
                   <li key={item.id} className="mb-2">
                     <button
-                      onClick={() => setCurrentPage(item.id)}
-                      className={`w-full text-left px-4 py-3 rounded-lg flex items-center ${currentPage === item.id ? 'bg-primary' : 'hover:bg-slate-700'}`}
+                      onClick={() => handleMenuClick(item.id)}
+                      className={`w-full text-left px-4 py-3 rounded-lg flex items-center transition-colors ${
+                        currentPage === item.id ? 'bg-primary' : 'hover:bg-slate-700'
+                      }`}
                     >
                       <i className={`fas fa-${item.icon} mr-3`}></i>
                       {item.label}
@@ -301,11 +391,11 @@
                 {mockContracts.slice(0, 3).map(contract => (
                   <li key={contract.id} className="mb-2">
                     <button
-                      onClick={() => setCurrentPage('dashboard')}
-                      className="w-full text-left px-4 py-2 rounded-lg flex items-center hover:bg-slate-700"
+                      onClick={() => handleMenuClick('dashboard')}
+                      className="w-full text-left px-4 py-2 rounded-lg flex items-center hover:bg-slate-700 transition-colors"
                     >
-                      <i className="fas fa-file-contract mr-3"></i>
-                      <span className="truncate">{contract.title}</span>
+                      <i className="fas fa-file-contract mr-3 text-sm"></i>
+                      <span className="truncate text-sm">{contract.title}</span>
                     </button>
                   </li>
                 ))}
@@ -334,14 +424,14 @@
         
         return (
           <div className="login-bg min-h-screen flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-8">
-              <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-gray-800">ContractInsight</h1>
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 sm:p-8">
+              <div className="text-center mb-6 sm:mb-8">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">ContractInsight</h1>
                 <p className="text-gray-600 mt-2">Sign in to your account</p>
               </div>
               
               {error && (
-                <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-6 flex items-center">
+                <div className="bg-red-50 text-red-700 p-3 rounded-lg mb-6 flex items-center text-sm">
                   <i className="fas fa-exclamation-circle mr-2"></i>
                   {error}
                 </div>
@@ -387,9 +477,9 @@
               </form>
               
               <div className="mt-6 text-center">
-                <p className="text-gray-600">Demo credentials:</p>
-                <p className="text-gray-700 font-medium">admin / password</p>
-                <p className="text-gray-700 font-medium">user / password</p>
+                <p className="text-gray-600 text-sm">Demo credentials:</p>
+                <p className="text-gray-700 font-medium text-sm">admin / password</p>
+                <p className="text-gray-700 font-medium text-sm">user / password</p>
               </div>
             </div>
           </div>
@@ -423,24 +513,26 @@
         };
         
         return (
-          <div className="p-8">
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-gray-800">Upload Contracts</h1>
-              <p className="text-gray-600">Upload your contract documents for analysis</p>
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Upload Contracts</h1>
+              <p className="text-gray-600 text-sm sm:text-base">Upload your contract documents for analysis</p>
             </div>
             
             <div
-              className={`border-2 border-dashed rounded-xl p-8 text-center mb-8 ${isDragging ? 'border-primary bg-blue-50' : 'border-gray-300'}`}
+              className={`border-2 border-dashed rounded-xl p-6 sm:p-8 text-center mb-6 sm:mb-8 transition-colors ${
+                isDragging ? 'border-primary bg-blue-50' : 'border-gray-300'
+              }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
-              <i className="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
-              <p className="text-gray-700 mb-2">Drag and drop your files here</p>
-              <p className="text-gray-500 text-sm mb-4">Supported formats: PDF, DOCX, DOC</p>
+              <i className="fas fa-cloud-upload-alt text-3xl sm:text-4xl text-gray-400 mb-4"></i>
+              <p className="text-gray-700 mb-2 text-sm sm:text-base">Drag and drop your files here</p>
+              <p className="text-gray-500 text-xs sm:text-sm mb-4">Supported formats: PDF, DOCX, DOC</p>
               <button
                 onClick={() => fileInputRef.current.click()}
-                className="bg-primary text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="bg-primary text-white py-2 px-4 sm:px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm sm:text-base"
               >
                 Select Files
               </button>
@@ -455,15 +547,15 @@
             
             {uploadedFiles.length > 0 && (
               <div>
-                <h2 className="text-xl font-semibold text-gray-800 mb-4">Uploaded Files</h2>
-                <div className="bg-white rounded-xl shadow-sm p-6">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-4">Uploaded Files</h2>
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                   <ul className="divide-y divide-gray-200">
                     {uploadedFiles.map((file, index) => (
                       <li key={index} className="py-3 flex items-center">
-                        <i className="fas fa-file-pdf text-2xl text-red-500 mr-3"></i>
-                        <div className="flex-1">
-                          <p className="font-medium">{file.name}</p>
-                          <p className="text-sm text-gray-500">{(file.size / 1024).toFixed(2)} KB</p>
+                        <i className="fas fa-file-pdf text-xl sm:text-2xl text-red-500 mr-3"></i>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm sm:text-base truncate">{file.name}</p>
+                          <p className="text-xs sm:text-sm text-gray-500">{(file.size / 1024).toFixed(2)} KB</p>
                         </div>
                         <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">Uploaded</span>
                       </li>
@@ -513,61 +605,61 @@
         };
         
         return (
-          <div className="p-8">
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-gray-800">Contracts Dashboard</h1>
-              <p className="text-gray-600">Manage and review your contracts</p>
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Contracts Dashboard</h1>
+              <p className="text-gray-600 text-sm sm:text-base">Manage and review your contracts</p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-              <div className="bg-white rounded-xl shadow-sm p-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-gray-500">Total Contracts</h3>
-                  <i className="fas fa-file-contract text-primary text-xl"></i>
+                  <h3 className="text-gray-500 text-xs sm:text-sm">Total Contracts</h3>
+                  <i className="fas fa-file-contract text-primary text-lg sm:text-xl"></i>
                 </div>
-                <p className="text-3xl font-bold mt-2">{contracts.length}</p>
+                <p className="text-2xl sm:text-3xl font-bold mt-2">{contracts.length}</p>
               </div>
               
-              <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-gray-500">Active</h3>
-                  <i className="fas fa-check-circle text-success text-xl"></i>
+                  <h3 className="text-gray-500 text-xs sm:text-sm">Active</h3>
+                  <i className="fas fa-check-circle text-success text-lg sm:text-xl"></i>
                 </div>
-                <p className="text-3xl font-bold mt-2">{contracts.filter(c => c.status === 'Active').length}</p>
+                <p className="text-2xl sm:text-3xl font-bold mt-2">{contracts.filter(c => c.status === 'Active').length}</p>
               </div>
               
-              <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-gray-500">Need Review</h3>
-                  <i className="fas fa-exclamation-triangle text-warning text-xl"></i>
+                  <h3 className="text-gray-500 text-xs sm:text-sm">Need Review</h3>
+                  <i className="fas fa-exclamation-triangle text-warning text-lg sm:text-xl"></i>
                 </div>
-                <p className="text-3xl font-bold mt-2">{contracts.filter(c => c.riskScore > 50).length}</p>
+                <p className="text-2xl sm:text-3xl font-bold mt-2">{contracts.filter(c => c.riskScore > 50).length}</p>
               </div>
               
-              <div className="bg-white rounded-xl shadow-sm p-6">
+              <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 col-span-2 lg:col-span-1">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-gray-500">High Risk</h3>
-                  <i className="fas fa-radiation text-danger text-xl"></i>
+                  <h3 className="text-gray-500 text-xs sm:text-sm">High Risk</h3>
+                  <i className="fas fa-radiation text-danger text-lg sm:text-xl"></i>
                 </div>
-                <p className="text-3xl font-bold mt-2">{contracts.filter(c => c.riskScore > 70).length}</p>
+                <p className="text-2xl sm:text-3xl font-bold mt-2">{contracts.filter(c => c.riskScore > 70).length}</p>
               </div>
             </div>
             
-            <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-              <div className="flex flex-col md:flex-row md:items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-800 mb-4 md:mb-0">All Contracts</h2>
+            <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-6">
+              <div className="flex flex-col space-y-4 mb-6 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-800">All Contracts</h2>
                 
-                <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
+                <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-4">
                   <input
                     type="text"
                     placeholder="Search contracts..."
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                   
                   <select
-                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                   >
@@ -578,7 +670,8 @@
                 </div>
               </div>
               
-              <div className="overflow-x-auto">
+              {/* Desktop Table View */}
+              <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="text-left text-gray-500 border-b border-gray-200">
@@ -637,6 +730,59 @@
                   </div>
                 )}
               </div>
+              
+              {/* Mobile Card View */}
+              <div className="lg:hidden space-y-4">
+                {filteredContracts.map(contract => (
+                  <div key={contract.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium text-gray-800 truncate">{contract.title}</h3>
+                        <p className="text-sm text-gray-500">{contract.client}</p>
+                      </div>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(contract.status)} ml-2`}>
+                        {contract.status}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <p className="text-xs text-gray-500">Value</p>
+                        <p className="font-medium text-sm">{contract.value}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Risk Score</p>
+                        <div className="flex items-center">
+                          <div className="w-8 h-2 bg-gray-200 rounded-full mr-2 overflow-hidden">
+                            <div 
+                              className={`h-full ${getRiskColor(contract.riskScore)}`}
+                              style={{ width: `${contract.riskScore}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-sm">{contract.riskScore}%</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs text-gray-500">{contract.startDate} to {contract.endDate}</p>
+                      <button
+                        onClick={() => onViewContract(contract)}
+                        className="bg-primary text-white py-1 px-3 rounded text-xs hover:bg-blue-700 transition-colors"
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                
+                {filteredContracts.length === 0 && (
+                  <div className="text-center py-12">
+                    <i className="fas fa-search text-4xl text-gray-400 mb-4"></i>
+                    <p className="text-gray-500">No contracts found matching your criteria</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -646,11 +792,11 @@
       const InsightsPage = ({ contract, insights }) => {
         if (!contract) {
           return (
-            <div className="p-8">
-              <div className="bg-white rounded-xl shadow-sm p-8 text-center">
-                <i className="fas fa-exclamation-circle text-4xl text-warning mb-4"></i>
-                <h2 className="text-xl font-semibold text-gray-800 mb-2">No Contract Selected</h2>
-                <p className="text-gray-600">Please select a contract from the dashboard to view insights</p>
+            <div className="p-4 sm:p-6 lg:p-8">
+              <div className="bg-white rounded-xl shadow-sm p-6 sm:p-8 text-center">
+                <i className="fas fa-exclamation-circle text-3xl sm:text-4xl text-warning mb-4"></i>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">No Contract Selected</h2>
+                <p className="text-gray-600 text-sm sm:text-base">Please select a contract from the dashboard to view insights</p>
               </div>
             </div>
           );
@@ -665,50 +811,51 @@
         const riskLevel = getRiskLevel(insights.riskScore || contract.riskScore);
         
         return (
-          <div className="p-8">
-            <div className="mb-8">
-              <h1 className="text-2xl font-bold text-gray-800">Contract Insights</h1>
-              <p className="text-gray-600">AI-powered analysis of your contract</p>
+          <div className="p-4 sm:p-6 lg:p-8">
+            <div className="mb-6 sm:mb-8">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Contract Insights</h1>
+              <p className="text-gray-600 text-sm sm:text-base">AI-powered analysis of your contract</p>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-              <div className="lg:col-span-2">
-                <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <h2 className="text-xl font-semibold text-gray-800">{contract.title}</h2>
-                      <p className="text-gray-600">{contract.client}</p>
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6 sm:mb-8">
+              <div className="xl:col-span-2 space-y-6">
+                {/* Contract Overview */}
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-6 space-y-3 sm:space-y-0">
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg sm:text-xl font-semibold text-gray-800 truncate">{contract.title}</h2>
+                      <p className="text-gray-600 text-sm sm:text-base">{contract.client}</p>
                     </div>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${riskLevel.color} text-white`}>
+                    <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${riskLevel.color} text-white self-start`}>
                       {riskLevel.text}
                     </span>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     <div>
-                      <p className="text-gray-500">Contract Value</p>
-                      <p className="font-semibold">{contract.value}</p>
+                      <p className="text-gray-500 text-xs sm:text-sm">Contract Value</p>
+                      <p className="font-semibold text-sm sm:text-base">{contract.value}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500">Status</p>
-                      <p className="font-semibold">{contract.status}</p>
+                      <p className="text-gray-500 text-xs sm:text-sm">Status</p>
+                      <p className="font-semibold text-sm sm:text-base">{contract.status}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500">Start Date</p>
-                      <p className="font-semibold">{contract.startDate}</p>
+                      <p className="text-gray-500 text-xs sm:text-sm">Start Date</p>
+                      <p className="font-semibold text-sm sm:text-base">{contract.startDate}</p>
                     </div>
                     <div>
-                      <p className="text-gray-500">End Date</p>
-                      <p className="font-semibold">{contract.endDate}</p>
+                      <p className="text-gray-500 text-xs sm:text-sm">End Date</p>
+                      <p className="font-semibold text-sm sm:text-base">{contract.endDate}</p>
                     </div>
                   </div>
                   
                   <div className="mb-6">
                     <div className="flex justify-between items-center mb-2">
-                      <p className="text-gray-700 font-medium">AI Risk Assessment Score</p>
-                      <p className="font-bold">{insights.riskScore || contract.riskScore}%</p>
+                      <p className="text-gray-700 font-medium text-sm sm:text-base">AI Risk Assessment Score</p>
+                      <p className="font-bold text-sm sm:text-base">{insights.riskScore || contract.riskScore}%</p>
                     </div>
-                    <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+                    <div className="w-full h-3 sm:h-4 bg-gray-200 rounded-full overflow-hidden">
                       <div 
                         className={`h-full progress-bar ${riskLevel.color}`}
                         style={{ width: `${insights.riskScore || contract.riskScore}%` }}
@@ -717,83 +864,86 @@
                   </div>
                 </div>
                 
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Risk Evidence</h3>
+                {/* Risk Evidence */}
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">Risk Evidence</h3>
                   
                   {insights.evidence ? (
                     <div className="space-y-4">
                       {insights.evidence.map((item, index) => (
-                        <div key={index} className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <div key={index} className="p-3 sm:p-4 bg-red-50 border border-red-200 rounded-lg">
                           <div className="flex items-start">
-                            <i className="fas fa-exclamation-circle text-red-500 mt-1 mr-3"></i>
-                            <div>
-                              <p className="font-medium text-red-800">{item.type}</p>
-                              <p className="text-red-700">{item.text}</p>
+                            <i className="fas fa-exclamation-circle text-red-500 mt-1 mr-3 text-sm"></i>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-red-800 text-sm">{item.type}</p>
+                              <p className="text-red-700 text-xs sm:text-sm">{item.text}</p>
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8">
-                      <i className="fas fa-check-circle text-4xl text-success mb-4"></i>
-                      <p className="text-gray-600">No significant risks identified in this contract</p>
+                    <div className="text-center py-6 sm:py-8">
+                      <i className="fas fa-check-circle text-3xl sm:text-4xl text-success mb-4"></i>
+                      <p className="text-gray-600 text-sm sm:text-base">No significant risks identified in this contract</p>
                     </div>
                   )}
                 </div>
               </div>
               
-              <div>
-                <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Clause Analysis</h3>
+              <div className="space-y-6">
+                {/* Clause Analysis */}
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">Clause Analysis</h3>
                   
                   {insights.clauses ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       {insights.clauses.map((clause, index) => (
-                        <div key={index} className="p-4 border border-gray-200 rounded-lg">
-                          <div className="flex justify-between items-start mb-2">
-                            <p className="font-medium text-gray-800">{clause.name}</p>
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        <div key={index} className="p-3 sm:p-4 border border-gray-200 rounded-lg">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 space-y-2 sm:space-y-0">
+                            <p className="font-medium text-gray-800 text-sm sm:text-base">{clause.name}</p>
+                            <span className={`px-2 py-1 rounded text-xs font-medium self-start ${
                               clause.risk === 'High' ? 'bg-danger text-white' : 
                               clause.risk === 'Medium' ? 'bg-warning text-white' : 'bg-success text-white'
                             }`}>
                               {clause.risk} Risk
                             </span>
                           </div>
-                          <p className="text-gray-600 text-sm">{clause.description}</p>
+                          <p className="text-gray-600 text-xs sm:text-sm">{clause.description}</p>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8">
-                      <i className="fas fa-info-circle text-4xl text-primary mb-4"></i>
-                      <p className="text-gray-600">No clause analysis available for this contract</p>
+                    <div className="text-center py-6 sm:py-8">
+                      <i className="fas fa-info-circle text-3xl sm:text-4xl text-primary mb-4"></i>
+                      <p className="text-gray-600 text-sm">No clause analysis available for this contract</p>
                     </div>
                   )}
                 </div>
                 
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Recommended Actions</h3>
+                {/* Recommended Actions */}
+                <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-800 mb-4">Recommended Actions</h3>
                   
                   {insights.riskScore > 50 ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       <div className="flex items-start">
-                        <i className="fas fa-exclamation-triangle text-warning mt-1 mr-3"></i>
-                        <p className="text-gray-700">Review high-risk clauses with legal team</p>
+                        <i className="fas fa-exclamation-triangle text-warning mt-1 mr-3 text-sm"></i>
+                        <p className="text-gray-700 text-xs sm:text-sm">Review high-risk clauses with legal team</p>
                       </div>
                       <div className="flex items-start">
-                        <i className="fas fa-pen text-primary mt-1 mr-3"></i>
-                        <p className="text-gray-700">Consider renegotiating liability terms</p>
+                        <i className="fas fa-pen text-primary mt-1 mr-3 text-sm"></i>
+                        <p className="text-gray-700 text-xs sm:text-sm">Consider renegotiating liability terms</p>
                       </div>
                       <div className="flex items-start">
-                        <i className="fas fa-clock text-primary mt-1 mr-3"></i>
-                        <p className="text-gray-700">Monitor contract performance closely</p>
+                        <i className="fas fa-clock text-primary mt-1 mr-3 text-sm"></i>
+                        <p className="text-gray-700 text-xs sm:text-sm">Monitor contract performance closely</p>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-start">
-                      <i className="fas fa-check-circle text-success mt-1 mr-3"></i>
-                      <p className="text-gray-700">This contract appears to be low risk. Standard monitoring recommended.</p>
+                      <i className="fas fa-check-circle text-success mt-1 mr-3 text-sm"></i>
+                      <p className="text-gray-700 text-xs sm:text-sm">This contract appears to be low risk. Standard monitoring recommended.</p>
                     </div>
                   )}
                 </div>
